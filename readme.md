@@ -1,8 +1,8 @@
 # RISC-V Pipeline Observatory
 
-An educational RV32I simulator for comparing a single-stage processor with a classic five-stage pipeline. The project is designed to make instruction execution visible: users can write assembly, translate it into machine code, run it through either core, and inspect registers, memory, hazards, forwarding, branches, caches, and per-cycle pipeline movement.
+An end-to-end RV32I processor simulation and performance-analysis platform. The project combines a modular CPU execution model, an assembly-to-machine-code toolchain, configurable cache and branch-prediction experiments, structured observability, and a Streamlit interface for analyzing execution at instruction and cycle granularity.
 
-## What the project does
+## Project overview
 
 The simulator accepts either the existing byte-oriented `imem.txt` format or assembly source. Assembly is translated into 32-bit RISC-V words and then into the four-byte-per-instruction format expected by instruction memory. The selected processor executes the same program and produces the traditional register and data-memory result files.
 
@@ -16,16 +16,16 @@ The five-stage core models the following stages:
 | MEM   | Read or write data memory and resolve branches                          |
 | WB    | Write an ALU or load result back to the register file                   |
 
-The stages overlap. Therefore several instructions can be active in different stages during one cycle. The single-stage core completes one instruction through its whole datapath before starting the next one, so it is a simpler correctness and performance baseline.
+The stages overlap, allowing multiple instructions to be active in different stages during one cycle. The single-stage core completes one instruction through its datapath before starting the next one and provides a controlled baseline for throughput and latency comparisons.
 
 This is a classic in-order pipeline simulator, not a dynamically scheduled or out-of-order processor. It handles dependencies with forwarding and stalls, and handles incorrect branch predictions by flushing wrong-path instructions and redirecting the PC to the resolved target.
 
-## Main features
+## Technical capabilities
 
-- RV32I educational subset: `add`, `sub`, `and`, `or`, `xor`, `addi`, `lw`, `sw`, `beq`, `bne`, `jal`, `nop`, and `halt`.
+- RV32I instruction subset: `add`, `sub`, `and`, `or`, `xor`, `addi`, `lw`, `sw`, `beq`, `bne`, `jal`, `nop`, and `halt`.
 - Register aliases such as `zero`, `ra`, `sp`, `t0`, `s0`, and `a0`.
 - Labels for branches and jumps.
-- Both canonical memory syntax (`lw x1, 0(x0)`) and the legacy sample syntax (`LW R1, R0, #0`).
+- Canonical memory syntax (`lw x1, 0(x0)`) plus backward-compatible `R` register and immediate syntax.
 - Hazard detection, ALU forwarding, load-use stalls, branch handling, and pipeline flush tracking.
 - Always-taken, always-not-taken, one-bit, and two-bit branch predictors.
 - Independent instruction and data caches for each core.
@@ -33,7 +33,16 @@ This is a classic in-order pipeline simulator, not a dynamically scheduled or ou
 - LRU and FIFO replacement policies.
 - Cache access records with cycle, address/block, type, hit/miss, set, tag, penalty, and eviction.
 - JSON reports containing metrics, predictor statistics, cache statistics, and five-stage cycle traces.
-- Streamlit dashboard for assembly editing, execution results, translated instructions, and pipeline inspection.
+- Streamlit observability dashboard for assembly editing, execution results, translated instructions, and pipeline inspection.
+
+## Engineering highlights
+
+- Separated core, memory, assembler, cache, predictor, tracing, reporting, and UI modules so each concern can be tested and evolved independently.
+- Preserved the existing register-file, data-memory, and text-metrics interfaces while adding richer JSON output for new analysis features.
+- Kept cache timing analytically separate from architectural execution cycles, preventing performance experiments from changing functional results.
+- Created independent instruction/data cache state for each processor so single-stage and five-stage comparisons are reproducible and isolated.
+- Added readable validation errors for malformed assembly, unsupported instructions, invalid addresses, and invalid cache geometries.
+- Added deterministic regression tests for instruction encoding, cache placement, LRU/FIFO behavior, and cache timing.
 
 ## Quick start
 
@@ -49,7 +58,7 @@ Run the web dashboard:
 streamlit run app.py
 ```
 
-The dashboard supplies a beginner-friendly sample program. Enter assembly, correct any validation message, choose the processor and optional cache settings, and select **Run program**. The five-stage tab lets you choose a cycle and see which source instruction is in IF, ID, EX, MEM, and WB. The translation tab shows the generated PC, assembly, hexadecimal word, and binary word.
+Enter assembly, resolve any validation message, choose the processor and optional cache settings, and select **Run program**. The five-stage tab lets you select a cycle and inspect the source instruction in IF, ID, EX, MEM, and WB. The translation tab shows the generated PC, assembly, hexadecimal word, and binary word.
 
 Run the existing file-based workflow:
 
@@ -131,7 +140,7 @@ src/trace.py           Structured cycle trace support
 src/report.py          Deterministic JSON report writer
 tests/                 Regression tests
 input/                 Default assembly and memory inputs
-iodir/                 Legacy-compatible result directory
+iodir/                 Compatibility output directory
 ```
 
 ## Testing
