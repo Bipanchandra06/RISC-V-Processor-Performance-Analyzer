@@ -13,7 +13,7 @@ from src.report import write_report
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="RV32I processor and cache simulator")
+    parser = argparse.ArgumentParser(description="MicroTrace: RV32I pipeline and cache simulator")
     parser.add_argument("--iodir", default="iodir", help="Directory containing input files")
     parser.add_argument("--mode", choices=["ss", "fs", "both"], default="both")
     parser.add_argument("--asm-file")

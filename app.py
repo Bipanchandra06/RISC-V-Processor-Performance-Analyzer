@@ -8,7 +8,7 @@ from src.assembler import assemble
 ROOT = Path(__file__).parent
 DEFAULT = "addi x1, x0, 5\naddi x2, x0, 10\nadd x3, x1, x2\nhalt\n"
 
-st.set_page_config(page_title="RISC-V Simulator", page_icon="⚙️", layout="wide")
+st.set_page_config(page_title="MicroTrace", page_icon="⚙️", layout="wide")
 st.markdown("""
 <style>
 .stApp { background:#f7f9fb; }
@@ -20,7 +20,7 @@ h1,h2,h3 { color:#17324d; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("RISC-V Simulator")
+st.title("MicroTrace")
 st.markdown('<p class="title-note">Write assembly, run it, and inspect the five pipeline stages one cycle at a time.</p>', unsafe_allow_html=True)
 
 with st.sidebar:

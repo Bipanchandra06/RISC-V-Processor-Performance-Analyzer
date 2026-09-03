@@ -1,4 +1,4 @@
-"""Configurable instruction/data cache models for the RISC-V Observatory."""
+"""Configurable instruction/data cache models for MicroTrace."""
 from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Literal

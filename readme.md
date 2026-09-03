@@ -1,6 +1,6 @@
-# RISC-V Pipeline Observatory
+# RISC-V Processor Performance Analyzer
 
-An end-to-end RV32I processor simulation and performance-analysis platform. The project combines a modular CPU execution model, an assembly-to-machine-code toolchain, configurable cache and branch-prediction experiments, structured observability, and a Streamlit interface for analyzing execution at instruction and cycle granularity.
+RISC-V Processor Performance Analyzer is an end-to-end RV32I processor simulation and performance-analysis platform. It combines a modular CPU execution model, an assembly-to-machine-code toolchain, configurable cache and branch-prediction experiments, structured observability, and a Streamlit interface for analyzing execution at instruction and cycle granularity.
 
 ## Project overview
 
@@ -43,6 +43,10 @@ This is a classic in-order pipeline simulator, not a dynamically scheduled or ou
 - Created independent instruction/data cache state for each processor so single-stage and five-stage comparisons are reproducible and isolated.
 - Added readable validation errors for malformed assembly, unsupported instructions, invalid addresses, and invalid cache geometries.
 - Added deterministic regression tests for instruction encoding, cache placement, LRU/FIFO behavior, and cache timing.
+
+## Technology and interview keywords
+
+Python, object-oriented design, modular architecture, dataclasses, type hints, command-line interface (CLI), argument parsing, file I/O, validation, exception handling, unit testing, regression testing, deterministic reports, JSON serialization, Streamlit, pandas, subprocess integration, RISC-V, RV32I, instruction encoding, assembler, machine code, instruction memory, data memory, register file, ALU, control unit, datapath, program counter, single-stage processor, five-stage pipeline, instruction fetch, decode, execute, memory access, write-back, pipeline registers, in-order execution, data hazards, control hazards, structural reasoning, forwarding, hazard detection, load-use stalls, branch prediction, misprediction recovery, pipeline flush, instruction-level tracing, cycle-level observability, CPI, IPC, throughput, latency, performance counters, cache hierarchy concepts, instruction cache, data cache, direct-mapped cache, set-associative cache, fully associative cache, associativity, cache lines, blocks, sets, tags, hit rate, miss rate, compulsory misses, conflict misses, LRU, FIFO, cache evictions, write-through, write-allocate, memory penalty modeling, effective cycles, performance analysis, and systems debugging.
 
 ## Quick start
 

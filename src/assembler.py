@@ -1,4 +1,4 @@
-"""Small, dependency-free RV32I assembler used by the Observatory UI/CLI."""
+"""Small, dependency-free RV32I assembler used by the MicroTrace UI/CLI."""
 from __future__ import annotations
 
 import re
@@ -46,7 +46,7 @@ def _target(token: str, labels: dict[str, int], line: str) -> int:
     except ValueError as exc: raise ValueError(f"Unknown label or address '{token}' in: {line}") from exc
 
 def assemble(text: str) -> AssembledProgram:
-    """Assemble the supported educational RV32I subset into byte-addressed words."""
+    """Assemble the supported RV32I subset into byte-addressed words."""
     # Some of the original sample files wrap machine words in a C-style block
     # comment. Ignore those blocks so the same files can be assembled directly.
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
