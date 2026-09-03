@@ -31,6 +31,22 @@ class Core(object):
         self.stall_count = 0
         self.branch_flushes = 0
         self.predictor = None
+        self.retired_instructions = 0
+
+    def cache_report(self):
+        return {
+            "instruction_cache": self.ext_instruction_memory.cache.report() if getattr(self.ext_instruction_memory, "cache", None) else None,
+            "data_cache": self.ext_data_memory.cache.report() if getattr(self.ext_data_memory, "cache", None) else None,
+        }
+
+    def cache_penalty_cycles(self):
+        return sum((c.get("penalty_cycles", 0) if c else 0) for c in self.cache_report().values())
+
+    def begin_cycle(self):
+        for memory in (self.ext_instruction_memory, self.ext_data_memory):
+            cache = getattr(memory, "cache", None)
+            if cache:
+                cache.current_cycle = self.cycle
 
 
 class SingleStageCore(Core):
@@ -56,6 +72,7 @@ class SingleStageCore(Core):
         """
         Execute one cycle of the processor.
         """
+        self.begin_cycle()
         # Your implementation
 
         # --------------------- IF stage ---------------------
@@ -85,6 +102,8 @@ class SingleStageCore(Core):
         self.state.EX["nop"] = self.state.ID["nop"]
 
         control_signals, halt = control_unit_for_single_stage(opcode)
+        if not halt and opcode != 0:
+            self.retired_instructions += 1
         if halt:
             self.state.IF["nop"] = True
 
@@ -275,7 +294,8 @@ class FiveStageCore(Core):
         self.opFilePath = io_dir / "StateResult_FS.txt"
 
     def step(self):
-        # Set the nop states based on the cycle number, REQUIRED by the assignment
+        self.begin_cycle()
+        # Initialize the pipeline bubbles during the first cycle.
         self.set_init_nop_state()
 
         if (self.halt_detected and
@@ -346,8 +366,7 @@ class FiveStageCore(Core):
             self.next_state.ID["nop"] = True
             return
 
-        # Conform to the assignment hidden requirements
-        # HALT the machine when the instruction is 0xFFFFFFFF
+        # HALT the machine when the instruction is 0xFFFFFFFF.
         if (self.ext_instruction_memory.read(self.state.IF["PC"]) == 0b11111111111111111111111111111111
                 and not self.next_state.IF["PCSrc"]):
             self.halt_detected = True
@@ -424,7 +443,7 @@ class FiveStageCore(Core):
         """Forward to next pipeline register"""
         self.next_state.EX["Rs"] = rs1
         self.next_state.EX["Rt"] = rs2
-        # According to the assignment testcase, the naming IS MEANT TO BE DIFFERENT
+        # Preserve source and destination fields for hazard detection.
         self.next_state.EX["instr"] = self.state.ID["Instr"]
 
         """Hazard Detection Unit"""
@@ -536,7 +555,7 @@ class FiveStageCore(Core):
         if branch:
             self.next_state.EX["nop"] = True
 
-        # Handle JAL calculation (to comform with the assignment, i.e., EX.Read_data1 = PC, EX.Read_data2 = 4)
+        # JAL writes the address of the following instruction.
         if jal:
             self.next_state.EX["Read_data1"] = self.next_state.EX["PC"]
             self.next_state.EX["Read_data2"] = 4
@@ -682,6 +701,8 @@ class FiveStageCore(Core):
         logger.debug(f"Write Enable: {bool(self.state.WB['wrt_enable'])}")
         if self.state.WB["wrt_enable"] == 1:
             self.register_file.write(self.state.WB["Wrt_reg_addr"], self.state.WB["Wrt_data"])
+        if self.state.WB.get("instr", 0) not in (0, 0xffffffff):
+            self.retired_instructions += 1
 
     def logger_instruction(self):
         logger.debug(f"Instruction: +.....-+...-+...-+.-+...-+.....-")
@@ -735,10 +756,7 @@ class FiveStageCore(Core):
 
     def printState(self, state, cycle):
         """
-        According to TA, StateResult.txt would NOT be graded.
-        This function is NOT really required for grading,
-        but may be used for the TA team to debug the internal working of your simulator
-        just in case we would want to.
+        This function writes a human-readable snapshot for debugging and learning.
 
         :param state:
         :param cycle:

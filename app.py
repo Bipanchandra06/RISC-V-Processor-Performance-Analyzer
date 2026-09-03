@@ -27,7 +27,17 @@ with st.sidebar:
     st.header("Run settings")
     mode = st.radio("Processor", ["fs", "ss", "both"], format_func=lambda x: {"fs":"5-stage pipeline", "ss":"Single-stage", "both":"Compare both"}[x])
     predictor = st.selectbox("Branch predictor", ["always-not-taken", "always-taken", "one-bit", "two-bit"])
-    cache = st.checkbox("Enable cache statistics")
+    cache_enabled = st.checkbox("Enable cache simulation")
+    cache_type = st.selectbox("Cache organization", ["direct", "set-associative", "fully-associative"], disabled=not cache_enabled)
+    replacement = st.selectbox("Replacement policy", ["lru", "fifo"], disabled=not cache_enabled or cache_type == "direct")
+    associativity = st.number_input("Associativity", min_value=2, value=2, step=1, disabled=not cache_enabled or cache_type != "set-associative")
+    cache_size = st.number_input("Cache size (bytes)", min_value=16, value=256, step=16, disabled=not cache_enabled)
+    block_size = st.number_input("Block size (bytes)", min_value=4, value=16, step=4, disabled=not cache_enabled)
+    hit_latency = st.number_input("Hit latency (cycles)", min_value=1, value=1, step=1, disabled=not cache_enabled)
+    miss_penalty = st.number_input("Miss penalty (cycles)", min_value=0, value=20, step=5, disabled=not cache_enabled)
+    memory_latency = st.number_input("Memory latency (cycles)", min_value=0, value=100, step=10, disabled=not cache_enabled)
+    instruction_cache = st.checkbox("Instruction cache", value=True, disabled=not cache_enabled)
+    data_cache = st.checkbox("Data cache", value=True, disabled=not cache_enabled)
     run = st.button("Run program", type="primary", use_container_width=True)
 
 source = st.text_area("Assembly code", DEFAULT, height=230, help="Use one supported instruction per line. Comments start with #.")
@@ -49,7 +59,10 @@ if run:
             asm = work / "program.asm"; asm.write_text(source)
             report = work / "report.json"
             command = [sys.executable, str(ROOT / "main.py"), "--iodir", str(work), "--mode", mode, "--asm-file", str(asm), "--predictor", predictor, "--report", str(report)]
-            if cache: command.append("--cache")
+            if cache_enabled:
+                command += ["--cache-type", cache_type, "--replacement", replacement, "--associativity", str(int(associativity)), "--cache-size", str(int(cache_size)), "--block-size", str(int(block_size)), "--hit-latency", str(int(hit_latency)), "--miss-penalty", str(int(miss_penalty)), "--memory-latency", str(int(memory_latency))]
+                if instruction_cache: command.append("--instruction-cache")
+                if data_cache: command.append("--data-cache")
             result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
             if result.returncode:
                 st.error("The program could not be completed.")
@@ -64,13 +77,34 @@ if "result" in st.session_state:
     st.header("Results")
     core_rows = []
     for name, values in data.get("cores", {}).items():
-        core_rows.append({"Processor": name.replace("_", " ").title(), "Cycles": values["cycles"], "Instructions": values["instructions"], "CPI": values["cpi"], "IPC": values["ipc"], "Stalls": values["stalls"], "Forwarding": values["forwarding_events"], "Flushes": values["branch_flushes"]})
+        ic = values.get("instruction_cache") or {}; dc = values.get("data_cache") or {}
+        core_rows.append({"Processor": name.replace("_", " ").title(), "Base cycles": values.get("base_cycles", values["cycles"]), "Cache penalty": values.get("cache_penalty_cycles", 0), "Effective cycles": values.get("effective_cycles", values["cycles"]), "Base CPI": values.get("base_cpi", values["cpi"]), "Effective CPI": values.get("effective_cpi", values["cpi"]), "I-cache hit rate": ic.get("hit_rate", "-") if ic else "-", "D-cache hit rate": dc.get("hit_rate", "-") if dc else "-", "Stalls": values["stalls"], "Forwarding": values["forwarding_events"], "Flushes": values["branch_flushes"]})
     st.dataframe(pd.DataFrame(core_rows), use_container_width=True, hide_index=True)
     cols = st.columns(len(core_rows) or 1)
     for col, row in zip(cols, core_rows):
         with col:
-            st.metric(f'{row["Processor"]} cycles', row["Cycles"])
-            st.metric(f'{row["Processor"]} CPI', row["CPI"])
+            st.metric(f'{row["Processor"]} effective cycles', row["Effective cycles"])
+            st.metric(f'{row["Processor"]} effective CPI', row["Effective CPI"])
+
+    st.caption("Base cycles come from the processor model. Effective cycles add the selected instruction/data-cache penalties.")
+    configuration = data.get("cache_configuration")
+    if configuration:
+        st.caption(f"Cache: {configuration['cache_type']} | {configuration['capacity_bytes']} B | {configuration['block_size_bytes']} B blocks | {configuration['replacement_policy'].upper()}")
+        st.subheader("Cache activity")
+        activity = []
+        for name, values in data.get("cores", {}).items():
+            for cache_name, label in (("instruction_cache", "Instruction"), ("data_cache", "Data")):
+                stats = values.get(cache_name)
+                if stats:
+                    activity.append({"Processor": name.replace("_", " ").title(), "Cache": label, "Accesses": stats["accesses"], "Hits": stats["hits"], "Misses": stats["misses"], "Hit rate": stats["hit_rate"], "Evictions": stats["evictions"], "Penalty cycles": stats["penalty_cycles"]})
+        st.dataframe(pd.DataFrame(activity), use_container_width=True, hide_index=True)
+        with st.expander("Show cache access details"):
+            events = []
+            for name, values in data.get("cores", {}).items():
+                for cache_name, label in (("instruction_cache", "Instruction"), ("data_cache", "Data")):
+                    for event in (values.get(cache_name) or {}).get("events", []):
+                        events.append({"Cycle": event.get("cycle", "-"), "Processor": name.replace("_", " ").title(), "Cache": label, "Address": event.get("block_number"), "Type": event.get("access_type"), "Result": "Hit" if event.get("hit") else "Miss", "Set": event.get("set_index"), "Tag": event.get("tag"), "Penalty": event.get("penalty_cycles"), "Evicted block": event.get("evicted_block")})
+            st.dataframe(pd.DataFrame(events), use_container_width=True, hide_index=True)
 
     if mode in ("fs", "both"):
         tab_trace, tab_translation = st.tabs(["5-stage execution", "Translated instructions"])

@@ -1,68 +1,151 @@
-# RISC-V 5-Stage Pipelined Simulator
+# RISC-V Pipeline Observatory
 
-This is a Single-stage and 5-stage pipelined RISC-V Simulator written in Python.
+An educational RV32I simulator for comparing a single-stage processor with a classic five-stage pipeline. The project is designed to make instruction execution visible: users can write assembly, translate it into machine code, run it through either core, and inspect registers, memory, hazards, forwarding, branches, caches, and per-cycle pipeline movement.
 
-## RISC-V Pipeline Observatory
+## What the project does
 
-The project includes an interactive mode with a small RV32I assembler, structured JSON metrics, branch-predictor statistics, cache accounting, and a Streamlit dashboard. Existing text outputs remain available for compatibility.
+The simulator accepts either the existing byte-oriented `imem.txt` format or assembly source. Assembly is translated into 32-bit RISC-V words and then into the four-byte-per-instruction format expected by instruction memory. The selected processor executes the same program and produces the traditional register and data-memory result files.
 
-```text
-python main.py --iodir iodir --asm-file program.asm --mode fs --predictor two-bit --cache --report observatory.json
+The five-stage core models the following stages:
+
+| Stage | Work performed                                                          |
+| ----- | ----------------------------------------------------------------------- |
+| IF    | Fetch an instruction and advance the PC                                 |
+| ID    | Decode it, read registers, generate control signals, and detect hazards |
+| EX    | Perform the ALU operation and calculate branch or memory addresses      |
+| MEM   | Read or write data memory and resolve branches                          |
+| WB    | Write an ALU or load result back to the register file                   |
+
+The stages overlap. Therefore several instructions can be active in different stages during one cycle. The single-stage core completes one instruction through its whole datapath before starting the next one, so it is a simpler correctness and performance baseline.
+
+This is a classic in-order pipeline simulator, not a dynamically scheduled or out-of-order processor. It handles dependencies with forwarding and stalls, and handles incorrect branch predictions by flushing wrong-path instructions and redirecting the PC to the resolved target.
+
+## Main features
+
+- RV32I educational subset: `add`, `sub`, `and`, `or`, `xor`, `addi`, `lw`, `sw`, `beq`, `bne`, `jal`, `nop`, and `halt`.
+- Register aliases such as `zero`, `ra`, `sp`, `t0`, `s0`, and `a0`.
+- Labels for branches and jumps.
+- Both canonical memory syntax (`lw x1, 0(x0)`) and the legacy sample syntax (`LW R1, R0, #0`).
+- Hazard detection, ALU forwarding, load-use stalls, branch handling, and pipeline flush tracking.
+- Always-taken, always-not-taken, one-bit, and two-bit branch predictors.
+- Independent instruction and data caches for each core.
+- Direct-mapped, set-associative, and fully associative cache organizations.
+- LRU and FIFO replacement policies.
+- Cache access records with cycle, address/block, type, hit/miss, set, tag, penalty, and eviction.
+- JSON reports containing metrics, predictor statistics, cache statistics, and five-stage cycle traces.
+- Streamlit dashboard for assembly editing, execution results, translated instructions, and pipeline inspection.
+
+## Quick start
+
+Install the dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Run the web dashboard:
+
+```bash
 streamlit run app.py
 ```
 
-The assembler supports `add`, `sub`, `and`, `or`, `xor`, `addi`, `lw`, `sw`, `beq`, `bne`, `jal`, `nop`, and `halt`, including labels for branches and jumps.
+The dashboard supplies a beginner-friendly sample program. Enter assembly, correct any validation message, choose the processor and optional cache settings, and select **Run program**. The five-stage tab lets you choose a cycle and see which source instruction is in IF, ID, EX, MEM, and WB. The translation tab shows the generated PC, assembly, hexadecimal word, and binary word.
 
-The dashboard reports both cycle count and estimated execution time. Cycle count is not directly comparable between the two cores because a single-stage cycle is longer; the dashboard therefore uses an explicitly labeled illustrative cycle-time model.
-The simulator reads the binary content of dmem.txt (data memory) and imem.txt (instruction memory) in `./iodir` and outputs step-by-step results in RFResult.txt (Register File Result) and StateResult.txt (Pipeline register state), the DMEMResult.txt (Data MEMory Result), and PerformanceMetrics_Result.txt
+Run the existing file-based workflow:
 
-This project is part of the NYU Master of Science in Computer Engineering (MSCE) course focused on Computing Systems Architecture (CSA).
+```bash
+python main.py --iodir iodir --mode both
+```
 
-## Schematic
+Assemble a source file directly:
 
-### Single Stage
+```bash
+python main.py --iodir iodir --asm-file input/Code.asm --mode both --report observatory.json
+```
 
-![Schematic RISCV Project Single Stage.png](docs/Schematic%20RISCV%20Project%20Single%20Stage.png)
-Schematic modified from [Textbook](##Reference) Figure 4.25
+`--mode` accepts `ss`, `fs`, or `both`. The original RF, DMEM, and performance text files remain in the selected I/O directory for compatibility.
 
-**Description:**
+## Cache experiments
 
-The simulator was designed to follow the Simple Implementation Scheme from the textbook Computer Organization and Design RISC-V Edition 2nd. To utilize the pipeline and the State class, I implemented the pipeline registers and Pipelined Control mentioned in Chapter 4.7.
-However, the BNE and JAL instructions are not achievable with the Simple Implementation Scheme. So, compared to the single stage datapath from the textbook Figure 4.25, I made the following changes to complete the functionality:
-- added 2 control signals (ALUSrcA, JAL)
-- added 1 MUX (ALU input A)
-- added 2 gates (XOR, OR)
-- modified a MUX (ALU input B)
-- connected PC to a MUX(ALU input A) and instruction[12] to the XOR gate.
+Enable both caches with the default configuration:
 
-### Five Stage
+```bash
+python main.py --iodir iodir --mode both --cache --report observatory.json
+```
 
-![Schematic RISCV Project Five Stage.png](docs/Schematic%20RISCV%20Project%20Five%20Stage.png)
-Modified from [Textbook](##Reference) Figure 4.62
+Useful options are:
 
-**Description:**
+```text
+--cache-type direct|set-associative|fully-associative
+--associativity N
+--replacement lru|fifo
+--cache-size BYTES
+--block-size BYTES
+--hit-latency CYCLES
+--miss-penalty CYCLES
+--memory-latency CYCLES
+--instruction-cache
+--data-cache
+```
 
-In the Five-Stage machine, I added the forwarding unit and the hazard control unit to solve hazards introduced in the Mulit-stage pipeline. I kept the design of the control unit and PCSrc (from the result of 3 logic gates) and significantly modified other parts of the branch condition  by moving it from the EX stage to the ID stage. Additionally, I implemented a dedicated forwarding unit to handle branch decision input choices.
-## Key Points to Know for Grading But Not Mentioned in the Provided Document
+The cache is tag-only: the functional memory remains the source of truth, so enabling a cache cannot change registers or memory results. A hit adds `hit_latency - 1` analytical penalty cycles; a miss adds that hit cost, miss penalty, and memory refill latency. The normal processor cycle is reported separately as **base cycles**.
 
-1.	State Results:
-- State results are **not graded**.
-- Variations in implementation logic can cause differences in state results, which is fine.
-2. Grading Criteria:
-- Focus on Register File (RF) and Data Memory (DMEM) files; they must match test cases exactly.
-- Even minor discrepancies in binary values (e.g., a 1 instead of a 0) will result in point deductions.
-3. Performance Metrics:
-- Values like IPC and CPI must match expected results.
-- The way you format them should be fine, but preferred using the format provided for easier auto-grading.
-- Deviations may result in manual grading, which is discouraged due to added complexity.
-4. File Format:
-- Ensure output files (RF, DMEM) are identical to the provided format and test cases to avoid issues during grading.
+The report distinguishes:
 
-## Reference
+```text
+base cycles       = processor model cycles
+cache penalty     = analytical cache delay
+effective cycles  = base cycles + cache penalty
+effective CPI     = effective cycles / retired instructions
+effective IPC     = retired instructions / effective cycles
+```
 
-All references came from:
-Computer Organization and Design RISC-V Edition 2nd ED 2021 by **David A. Patterson & John L. Hennessy** 
+## Assembly example
 
-## License
+```asm
+start:
+    addi x1, x0, 3
+    addi x2, x0, 7
+    add  x3, x1, x2
+    sw   x3, 8(x0)
+    lw   x4, 8(x0)
+    beq  x4, x3, done
+    addi x5, x0, 99
+done:
+    halt
+```
 
-This repo is licensed under the MIT License
+Comments may use `//` or `# comment`. A `#` immediately before a number is accepted as the legacy immediate marker.
+
+## Project layout
+
+```text
+app.py                 Streamlit interface
+main.py                Command-line runner
+src/assembler.py       Assembly parser and encoder
+src/core.py            Single-stage and five-stage cores
+src/memory.py          Instruction and data memory
+src/cache.py           Cache organizations and replacement policies
+src/predictor.py       Branch predictors
+src/trace.py           Structured cycle trace support
+src/report.py          Deterministic JSON report writer
+tests/                 Regression tests
+input/                 Default assembly and memory inputs
+iodir/                 Legacy-compatible result directory
+```
+
+## Testing
+
+Run the regression suite with:
+
+```bash
+python -m unittest discover -s tests -p "test*.py" -v
+```
+
+Run a syntax check with:
+
+```bash
+python -m compileall -q .
+```
+
+If the CLI reports that `imem.txt` or `dmem.txt` is missing, pass an `--iodir` containing both files. When using `--asm-file`, only `dmem.txt` is required initially because the assembler generates `imem.txt` there.

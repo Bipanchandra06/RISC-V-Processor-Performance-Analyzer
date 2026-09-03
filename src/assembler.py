@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 
 REGISTERS = {f"x{i}": i for i in range(32)}
+REGISTERS.update({f"r{i}": i for i in range(32)})
 REGISTERS.update({"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4,
                   "t0": 5, "t1": 6, "t2": 7, "s0": 8, "fp": 8,
                   "s1": 9, "a0": 10, "a1": 11, "a2": 12, "a3": 13,
@@ -29,8 +30,11 @@ def _reg(token: str, line: str) -> int:
     except KeyError as exc: raise ValueError(f"Unknown register '{token}' in: {line}") from exc
 
 def _imm(token: str, line: str) -> int:
-    try: return int(token, 0)
+    try: return int(token.lstrip("#"), 0)
     except ValueError as exc: raise ValueError(f"Invalid immediate '{token}' in: {line}") from exc
+
+def _is_register(token: str) -> bool:
+    return token.lower() in REGISTERS
 
 def _check_signed(value: int, bits: int, line: str) -> None:
     if not -(1 << (bits - 1)) <= value < (1 << (bits - 1)):
@@ -43,11 +47,16 @@ def _target(token: str, labels: dict[str, int], line: str) -> int:
 
 def assemble(text: str) -> AssembledProgram:
     """Assemble the supported educational RV32I subset into byte-addressed words."""
+    # Some of the original sample files wrap machine words in a C-style block
+    # comment. Ignore those blocks so the same files can be assembled directly.
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
     lines = []
     labels = {}
     pc = 0
     for raw in text.splitlines():
-        line = raw.split("#", 1)[0].split("//", 1)[0].strip()
+        # A # immediately followed by a number is an accepted legacy immediate
+        # marker (for example, LW R1, R0, #0); other # characters start a comment.
+        line = re.sub(r"#(?=\s|$).*", "", raw).split("//", 1)[0].strip()
         if not line: continue
         while ":" in line:
             label, line = line.split(":", 1)
@@ -73,10 +82,17 @@ def assemble(text: str) -> AssembledProgram:
                 rd, rs1 = _reg(args[0], line), _reg(args[1], line); imm = _imm(args[2], line); _check_signed(imm, 12, line)
                 word = ((imm & 0xfff) << 20) | (rs1 << 15) | (I_OPS[op] << 12) | (rd << 7) | 0x13
             elif op in {"lw", "sw"} and len(args) == 3:
-                r, imm, base = _reg(args[0], line), _imm(args[1], line), _reg(args[2], line); _check_signed(imm, 12, line)
-                word = ((imm & 0xfe0) << 20) | (base << 15) | (0x2 << 12) | ((imm & 0x1f) << 7) | (0x03 if op == "lw" else 0x23)
-                if op == "lw": word = (r << 7) | (base << 15) | (0x2 << 12) | ((imm & 0xfff) << 20) | 0x03
-                else: word = ((imm & 0xfe0) << 20) | (base << 15) | (0x2 << 12) | (r << 20) | (imm & 0x1f) << 7 | 0x23
+                # Support both canonical RV32I syntax, lw rd, imm(rs1), and
+                # the legacy project syntax, LW rd, rs1, #imm.
+                if _is_register(args[1]) and not _is_register(args[2]):
+                    r, base, imm = _reg(args[0], line), _reg(args[1], line), _imm(args[2], line)
+                else:
+                    r, imm, base = _reg(args[0], line), _imm(args[1], line), _reg(args[2], line)
+                _check_signed(imm, 12, line)
+                if op == "lw":
+                    word = (r << 7) | (base << 15) | (0x2 << 12) | ((imm & 0xfff) << 20) | 0x03
+                else:
+                    word = ((imm & 0xfe0) << 20) | (base << 15) | (0x2 << 12) | (r << 20) | ((imm & 0x1f) << 7) | 0x23
             elif op in B_OPS and len(args) == 3:
                 rs1, rs2 = _reg(args[0], line), _reg(args[1], line); target = _target(args[2], labels, line)
                 offset = target - pc; _check_signed(offset, 13, line)

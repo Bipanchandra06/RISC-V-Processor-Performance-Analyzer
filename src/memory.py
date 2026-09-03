@@ -13,7 +13,7 @@ class InstructionMemory(object):
     InstructionMemory simulates the instruction memory in a processor.
     """
 
-    def __init__(self, name, io_dir: Path):
+    def __init__(self, name, io_dir: Path, cache=None):
         """
         Initialize the InstructionMemory.
 
@@ -22,6 +22,7 @@ class InstructionMemory(object):
             io_dir (Path): Directory for input/output files.
         """
         self.id = name
+        self.cache = cache
 
         # Each line in the files contain a byte of data
         with open(io_dir / "imem.txt") as im:
@@ -40,6 +41,10 @@ class InstructionMemory(object):
         """
 
         # load 4 piece of data and concatenate them
+        if read_address < 0 or read_address + 4 > len(self.i_mem):
+            raise ValueError(f"Invalid instruction address: {read_address}")
+        if self.cache:
+            self.cache.access(read_address, "instruction")
         bin_str = ''.join(self.i_mem[read_address: read_address + 4])
         if bin_str == "":
             return 0
@@ -79,7 +84,7 @@ class DataMemory(object):
         if read_address < 0 or read_address + 4 > len(self.d_mem):
             raise ValueError(f"Invalid memory read address: {read_address}")
         if self.cache:
-            self.cache.access(read_address)
+            self.cache.access(read_address, "load")
         bin_str = ''.join(self.d_mem[read_address: read_address + 4])
         logger.debug(f"Reading data {bin_str} from address {read_address:05b}")
         return int(bin_str, 2)
@@ -98,7 +103,7 @@ class DataMemory(object):
         if address + 4 > len(self.d_mem):
             raise ValueError(f"Unaligned/out-of-range memory write address: {address}")
         if self.cache:
-            self.cache.access(address, write=True)
+            self.cache.access(address, "store", write=True)
         logger.debug(f"Writing data {data} to address {address}")
 
         # Handle negative two's complement conversion
