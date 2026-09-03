@@ -46,7 +46,17 @@ This is a classic in-order pipeline simulator, not a dynamically scheduled or ou
 
 ## Technology and interview keywords
 
-Python, object-oriented design, modular architecture, dataclasses, type hints, command-line interface (CLI), argument parsing, file I/O, validation, exception handling, unit testing, regression testing, deterministic reports, JSON serialization, Streamlit, pandas, subprocess integration, RISC-V, RV32I, instruction encoding, assembler, machine code, instruction memory, data memory, register file, ALU, control unit, datapath, program counter, single-stage processor, five-stage pipeline, instruction fetch, decode, execute, memory access, write-back, pipeline registers, in-order execution, data hazards, control hazards, structural reasoning, forwarding, hazard detection, load-use stalls, branch prediction, misprediction recovery, pipeline flush, instruction-level tracing, cycle-level observability, CPI, IPC, throughput, latency, performance counters, cache hierarchy concepts, instruction cache, data cache, direct-mapped cache, set-associative cache, fully associative cache, associativity, cache lines, blocks, sets, tags, hit rate, miss rate, compulsory misses, conflict misses, LRU, FIFO, cache evictions, write-through, write-allocate, memory penalty modeling, effective cycles, performance analysis, and systems debugging.
+The project demonstrates the following software-engineering, systems, and computer-architecture concepts:
+
+**Software engineering:** Python, object-oriented programming, modular architecture, separation of concerns, dataclasses, type hints, reusable interfaces, command-line interface (CLI), argument parsing, file I/O, input validation, exception handling, readable error messages, dependency management, deterministic output, JSON serialization, backward compatibility, regression testing, unit testing, and systems debugging.
+
+**Application and tooling:** Streamlit, pandas, interactive dashboards, subprocess integration, temporary workspaces, assembly editor, machine-code translation, report generation, structured data, per-cycle trace records, and human-readable performance reports.
+
+**Processor architecture:** RISC-V, RV32I, instruction encoding, assembler design, machine code, instruction memory, data memory, register file, ALU, control unit, datapath, program counter, single-stage processor, five-stage pipeline, IF/ID/EX/MEM/WB stages, pipeline registers, in-order execution, instruction retirement, throughput, latency, CPI, IPC, and performance counters.
+
+**Pipeline execution:** data hazards, control hazards, load-use hazards, hazard detection, operand forwarding, forwarding paths, pipeline stalls, branch resolution, branch prediction, always-taken prediction, always-not-taken prediction, one-bit predictors, two-bit saturating predictors, misprediction recovery, wrong-path instructions, pipeline flushes, and branch penalty analysis.
+
+**Memory hierarchy and caching:** instruction cache, data cache, cache lines, blocks, sets, tags, block offset, index calculation, associativity, direct-mapped caches, set-associative caches, fully associative caches, cache locality, hit rate, miss rate, compulsory misses, conflict misses, evictions, LRU replacement, FIFO replacement, write-through, write-allocate, cache access tracing, hit latency, miss penalty, memory refill latency, effective cycles, and analytical performance modeling.
 
 ## Quick start
 
