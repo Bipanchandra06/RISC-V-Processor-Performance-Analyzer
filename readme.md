@@ -1,7 +1,8 @@
 # RISC-V Processor Performance Analyzer
 
 RISC-V Processor Performance Analyzer is an end-to-end RV32I processor simulation and performance-analysis platform. It combines a modular CPU execution model, an assembly-to-machine-code toolchain, configurable cache and branch-prediction experiments, structured observability, and a Streamlit interface for analyzing execution at instruction and cycle granularity.
-
+## Deployment
+[Open Dashboard](https://risc-v-proceappr-performance-analyzer-p8tuctqzxtehvwyi7ez5qf.streamlit.app/)
 ## Project overview
 
 The simulator accepts either the existing byte-oriented `imem.txt` format or assembly source. Assembly is translated into 32-bit RISC-V words and then into the four-byte-per-instruction format expected by instruction memory. The selected processor executes the same program and produces the traditional register and data-memory result files.
