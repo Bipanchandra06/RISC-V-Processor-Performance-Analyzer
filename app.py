@@ -4,6 +4,7 @@ import json, shutil, subprocess, sys, tempfile
 import pandas as pd
 import streamlit as st
 from src.assembler import assemble
+from src.export import csv_bytes, pdf_bytes, hazard_rows, predictor_rows
 
 ROOT = Path(__file__).parent
 DEFAULT = "addi x1, x0, 5\naddi x2, x0, 10\nadd x3, x1, x2\nhalt\n"
@@ -87,6 +88,25 @@ if "result" in st.session_state:
             st.metric(f'{row["Processor"]} effective CPI', row["Effective CPI"])
 
     st.caption("Base cycles come from the processor model. Effective cycles add the selected instruction/data-cache penalties.")
+    st.subheader("Download results")
+    download_cols = st.columns(2)
+    with download_cols[0]:
+        st.download_button("Download CSV", csv_bytes(data), "riscv_performance_report.csv", "text/csv", use_container_width=True)
+    with download_cols[1]:
+        st.download_button("Download PDF", pdf_bytes(data), "riscv_performance_report.pdf", "application/pdf", use_container_width=True)
+
+    predictor_stats = predictor_rows(data)
+    if predictor_stats:
+        st.subheader("Branch predictor statistics")
+        st.dataframe(pd.DataFrame(predictor_stats), use_container_width=True, hide_index=True)
+
+    hazards = hazard_rows(data)
+    st.subheader("Hazards and stalls by cycle")
+    if hazards:
+        st.dataframe(pd.DataFrame(hazards), use_container_width=True, hide_index=True)
+    else:
+        st.info("No recorded hazards, forwarding events, or pipeline flushes.")
+
     configuration = data.get("cache_configuration")
     if configuration:
         st.caption(f"Cache: {configuration['cache_type']} | {configuration['capacity_bytes']} B | {configuration['block_size_bytes']} B blocks | {configuration['replacement_policy'].upper()}")
