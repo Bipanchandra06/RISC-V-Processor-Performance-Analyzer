@@ -32,6 +32,10 @@ def hazard_rows(payload: dict) -> list[dict]:
 def predictor_rows(payload: dict) -> list[dict]:
     rows = []
     for core, stats in payload.get("predictors", {}).get("branch", {}).items():
+        # Branch prediction is a pipeline feature; keep the user-facing
+        # statistics focused on the five-stage speculative execution model.
+        if core != "five_stage":
+            continue
         rows.append({"Processor": _core_name(core), "Mode": stats.get("mode", "-"),
                      "Branches": stats.get("branches", 0), "Predictions": stats.get("predictions", 0),
                      "Mispredictions": stats.get("mispredictions", 0),

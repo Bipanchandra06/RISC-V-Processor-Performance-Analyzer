@@ -1,6 +1,6 @@
 import unittest
 
-from src.export import csv_bytes, hazard_rows, pdf_bytes
+from src.export import csv_bytes, hazard_rows, pdf_bytes, predictor_rows
 
 
 class ExportTests(unittest.TestCase):
@@ -15,6 +15,15 @@ class ExportTests(unittest.TestCase):
         payload = {"cores": {}, "traces": {}, "predictors": {}}
         self.assertIn(b"PERFORMANCE SUMMARY", csv_bytes(payload))
         self.assertTrue(pdf_bytes(payload).startswith(b"%PDF-1.4"))
+
+    def test_predictor_rows_are_five_stage_only(self):
+        payload = {"predictors": {"branch": {
+            "single_stage": {"mode": "always-not-taken"},
+            "five_stage": {"mode": "two-bit"},
+        }}}
+        rows = predictor_rows(payload)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["Processor"], "Five Stage")
 
 
 if __name__ == "__main__":
